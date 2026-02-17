@@ -65,7 +65,7 @@ pipeline {
                 script {
                     withDockerRegistry(
                             [credentialsId: 'ecr:ap-south-1:ecr-credentials',
-                             url: 'https://352731040067.dkr.ecr.ap-south-1.amazonaws.com']) {
+                             url          : 'https://352731040067.dkr.ecr.ap-south-1.amazonaws.com']) {
 
                         sh '''
                         docker tag bookmyplan:latest 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest
@@ -78,36 +78,34 @@ pipeline {
 
         // ---------------- NEXUS ----------------
 
-        stage('Push to Nexus') {
+        stage('Upload Docker Image to Nexus') {
             steps {
-                withCredentials([usernamePassword(
-                        credentialsId: 'nexus-credentials',
-                        usernameVariable: 'USERNAME',
-                        passwordVariable: 'PASSWORD'
-                )]) {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
+                            usernameVariable: 'USERNAME',
+                            passwordVariable: 'PASSWORD')]) {
 
-                    sh '''
-                    echo "$PASSWORD" | docker login 13.203.30.87:8085 -u "$USERNAME" --password-stdin
-
-                    docker tag bookmyplan:latest 13.203.30.87:8085/bookmyplan/bookmyplan:latest
-
-                    docker push 13.203.30.87:8085/bookmyplan/bookmyplan:latest
-                    '''
+                        sh 'docker login http://13.203.30.87:8085/repository/bookmyplan/ -u admin -p ${PASSWORD}'
+                        echo "Push Docker Image to Nexus : In Progress"
+                        sh 'docker tag bookmyplan 13.203.30.87:8085/bookmyplan:latest'
+                        sh 'docker push 13.203.30.87:8085/bookmyplan'
+                        echo "Push Docker Image to Nexus : Completed"
+                    }
                 }
             }
-        }
 
-        // ---------------- CLEANUP ----------------
+            // ---------------- CLEANUP ----------------
 
-        stage('Cleanup Docker Images') {
-            steps {
-                sh '''
+            stage('Cleanup Docker Images') {
+                steps {
+                    sh '''
                 docker rmi pankaj2204/demodockerrepo:latest || true
                 docker rmi bookmyplan:latest || true
                 docker rmi 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest || true
                 docker rmi 13.203.30.87:8085/bookmyplan/bookmyplan:latest || true
                 docker image prune -f
                 '''
+                }
             }
         }
     }
