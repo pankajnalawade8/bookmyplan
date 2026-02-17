@@ -14,110 +14,100 @@ pipeline {
 
         stage('Code Compilation') {
             steps {
-                echo 'Starting Code Compilation...'
                 sh 'mvn clean compile'
-                echo 'Code Compilation Completed Successfully!'
             }
         }
 
         stage('Code QA Execution') {
             steps {
-                echo 'Running JUnit Test Cases...'
-                sh 'mvn clean test'
-                echo 'JUnit Test Cases Completed Successfully!'
+                sh 'mvn test'
             }
         }
 
         stage('Code Package') {
             steps {
-                echo 'Creating WAR Artifact...'
-                sh 'mvn clean package'
+                sh 'mvn package'
+                sh 'cp target/*.jar target/bookmyplan-${BUILD_NUMBER}.jar'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t bookmyplan:latest .'
+            }
+        }
+
+        stage('Tag Docker Image') {
+            steps {
                 sh '''
-                    cp target/*.jar target/bookmyplan-1.1.${BUILD_NUMBER}.jar
+                docker tag bookmyplan:latest pankaj2204/demodockerrepo:latest
                 '''
-                echo 'WAR Artifact Created Successfully!'
             }
         }
 
-        stage('Build & Tag Docker Image') {
-            steps {
-                echo 'Building Docker Image and Tagging...'
-                sh "docker build -t pankajnalawade8/bookmyplan:latest -t bookmyplan:latest ."
-                echo 'Docker Image Build Completed!'
-            }
-        }
+        // ---------------- DOCKER HUB ----------------
 
-        stage('Docker Image Scanning') {
+        stage('Push to Docker Hub') {
             steps {
-                echo 'Scanning Docker Image with Trivy...'
-                echo 'Docker Image Scanning Completed!'
-            }
-        }
-
-        stage('Push Docker Image to Docker Hub') {
-            steps {
-                script {
-                    withCredentials([string(credentialsId: 'dockerhubCred', variable: 'dockerhubCred')]) {
-                        sh 'docker login docker.io -u pankaj2204 -p ${dockerhubCred}'
-                        echo 'Pushing Docker Image to Docker Hub...'
-                        sh 'docker push pankaj2204/demodockerrepo:latest'
-                        echo 'Docker Image Pushed to Docker Hub Successfully!'
-                    }
+                withCredentials([string(credentialsId: 'dockerhubCred', variable: 'TOKEN')]) {
+                    sh '''
+                    echo "$TOKEN" | docker login -u pankaj2204 --password-stdin
+                    docker push pankaj2204/demodockerrepo:latest
+                    '''
                 }
             }
         }
 
-        stage('Push Docker Image to Amazon ECR') {
+        // ---------------- AWS ECR ----------------
+
+        stage('Push to Amazon ECR') {
             steps {
                 script {
                     withDockerRegistry(
                             [credentialsId: 'ecr:ap-south-1:ecr-credentials',
                              url: 'https://352731040067.dkr.ecr.ap-south-1.amazonaws.com']) {
 
-                        echo 'Tagging and Pushing Docker Image to ECR...'
-
                         sh '''
-                docker images
-
-                docker tag bookmyplan:latest 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest
-
-                docker push 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest
-                '''
-
-                        echo 'Docker Image Pushed to Amazon ECR Successfully!'
+                        docker tag bookmyplan:latest 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest
+                        docker push 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest
+                        '''
                     }
                 }
             }
         }
 
-        stage('Upload Docker Image to Nexus') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
-                            usernameVariable: 'USERNAME',
-                            passwordVariable: 'PASSWORD')]) {
+        // ---------------- NEXUS ----------------
 
-                        sh 'docker login http://13.203.30.87:8085/repository/bookmyplan/ -u admin -p ${PASSWORD}'
-                        echo "Push Docker Image to Nexus : In Progress"
-                        sh 'docker tag bookmyplan 13.203.30.87:8085/bookmyplan:latest'
-                        sh 'docker push 13.203.30.87:8085/bookmyplan'
-                        echo "Push Docker Image to Nexus : Completed"
-                    }
+        stage('Push to Nexus') {
+            steps {
+                withCredentials([usernamePassword(
+                        credentialsId: 'nexus-credentials',
+                        usernameVariable: 'USERNAME',
+                        passwordVariable: 'PASSWORD'
+                )]) {
+
+                    sh '''
+                    echo "$PASSWORD" | docker login 13.203.30.87:8085 -u "$USERNAME" --password-stdin
+
+                    docker tag bookmyplan:latest 13.203.30.87:8085/bookmyplan/bookmyplan:latest
+
+                    docker push 13.203.30.87:8085/bookmyplan/bookmyplan:latest
+                    '''
                 }
             }
-
         }
 
-        stage('Clean Up Local Docker Images') {
+        // ---------------- CLEANUP ----------------
+
+        stage('Cleanup Docker Images') {
             steps {
-                echo 'Cleaning Up Local Docker Images...'
                 sh '''
-                    docker rmi pankaj2204/demodockerrepo:latest || echo "Image not found or already deleted"
-                    docker rmi bookmyplan:latest || echo "Image not found or already deleted"
-                    docker rmi 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest || echo "Image not found or already deleted"
-                    docker image prune -f
+                docker rmi pankaj2204/demodockerrepo:latest || true
+                docker rmi bookmyplan:latest || true
+                docker rmi 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest || true
+                docker rmi 13.203.30.87:8085/bookmyplan/bookmyplan:latest || true
+                docker image prune -f
                 '''
-                echo 'Local Docker Images Cleaned Up Successfully!'
             }
         }
     }
