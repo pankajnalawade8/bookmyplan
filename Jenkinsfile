@@ -85,10 +85,10 @@ pipeline {
                             usernameVariable: 'USERNAME',
                             passwordVariable: 'PASSWORD')]) {
 
-                        sh 'docker login http://13.203.30.87:8085/repository/bookmyplan/ -u admin -p ${PASSWORD}'
+                        sh 'docker login http://65.0.69.2:8085/repository/bookmyplan/ -u admin -p ${PASSWORD}'
                         echo "Push Docker Image to Nexus : In Progress"
-                        sh 'docker tag bookmyplan 13.203.30.87:8085/bookmyplan:latest'
-                        sh 'docker push 13.203.30.87:8085/bookmyplan'
+                        sh 'docker tag bookmyplan 65.0.69.2:8085/bookmyplan:latest'
+                        sh 'docker push 65.0.69.2:8085/bookmyplan'
                         echo "Push Docker Image to Nexus : Completed"
                     }
                 }
