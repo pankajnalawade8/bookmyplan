@@ -44,6 +44,14 @@ pipeline {
                 '''
             }
         }
+// ---------------- DOCKER Image Scan ----------------
+        stage('Docker Image Scanning') {
+            steps {
+                echo 'Scanning Docker Image with Trivy...'
+                sh 'trivy image bookmyplan:latest || echo "Scan Failed - Proceeding with Caution"'
+                echo 'Docker Image Scanning Completed!'
+            }
+        }
 
         // ---------------- DOCKER HUB ----------------
 
