@@ -127,7 +127,7 @@ pipeline {
                 docker rmi pankaj2204/demodockerrepo:latest || true
                 docker rmi bookmyplan:latest || true
                 docker rmi 352731040067.dkr.ecr.ap-south-1.amazonaws.com/bookmyplan:latest || true
-                docker rmi 13.203.30.87:8085/bookmyplan/bookmyplan:latest || true
+                docker rmi 3.7.59.180:8085/bookmyplan/bookmyplan:latest || true
                 docker image prune -f
                 '''
                 }
